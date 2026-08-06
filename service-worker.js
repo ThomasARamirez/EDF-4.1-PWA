@@ -2,7 +2,7 @@
 // ----------------------------------------------------
 // Full pre-cache of app shell + cache-first runtime
 // ----------------------------------------------------
-const CACHE_VERSION = 'edf-precache-v23'; // bump when files change
+const CACHE_VERSION = 'edf-precache-v24'; // bump when files change
 
 const PRECACHE_URLS = [
   './',
@@ -11,9 +11,9 @@ const PRECACHE_URLS = [
   './Wingdiver.html',
   './AirRaider.html',
   './Fencer.html',
-  './edf.css',
-  './Main.js',
-  './edf-page.js',
+  './edf.css?v=23',
+  './Main.js?v=23',
+  './edf-page.js?v=23',
   './manifest.webmanifest',
   './perfect-future.ttf',
   './EDF_Logo.gif',
