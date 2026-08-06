@@ -155,4 +155,6 @@ window.addEventListener('storage', (e) => {
   if (/_count$/.test(e.key) || /_total$/.test(e.key)) scheduleRefresh();
 });
 
-// Note: Service Worker registration lives in index.html on purpose to avoid double registration.
+// Note: each page (index.html and the class pages) registers the service worker
+// itself — Main.js only runs on index.html now, so it can't do this for them.
+// Re-registering the same script/scope is idempotent, so this is safe.
