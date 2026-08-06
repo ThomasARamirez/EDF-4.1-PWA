@@ -122,7 +122,7 @@ function createEDFPage({ title, categories, storageKey }) {
   if (saveBtn) {
     saveBtn.addEventListener('click', (e) => {
       if (isSaveDisabled()) { e.preventDefault(); e.stopPropagation(); return; }
-      if (!saveBtn.getAttribute('onclick')) saveList();
+      saveList();
     });
   }
 
