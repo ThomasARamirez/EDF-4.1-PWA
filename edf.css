@@ -2,7 +2,7 @@
    FONT DECLARATIONS
    =========================== */
 @font-face { font-family: 'MyFont'; src: url('perfect-future.ttf') format('truetype'); font-weight: normal; font-style: normal; }
-@font-face { font-family: 'TitlingGothic'; src: url('titling-gothic.ttf') format('truetype'); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'TitlingGothic'; src: url('future-earth.ttf') format('truetype'); font-weight: 700; font-style: normal; }
 @font-face { font-family: 'Orbitron'; src: url('orbitron.ttf') format('truetype'); font-weight: 400 700; font-style: normal; }
 @font-face { font-family: 'SourceSans'; src: url('source-sans.ttf') format('truetype'); font-weight: 300 700; font-style: normal; }
 
