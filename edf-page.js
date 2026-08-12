@@ -292,7 +292,10 @@ function createEDFPage({ title, categories, storageKey }) {
       const willSelect = checkedCountFor(cat) < cat.boxes.length;
       const verb = willSelect ? 'collected' : 'not collected';
       confirmBulk(
-        `Mark all ${cat.boxes.length} ${cat.title} weapons as ${verb}?`,
+        // No trailing "weapons" here — the category name already supplies the
+        // noun ("...all 34 Stationary Weapons as..."). The class-level message
+        // below does need it, since a class name alone doesn't read as one.
+        `Mark all ${cat.boxes.length} ${cat.title} as ${verb}?`,
         () => setBoxes(cat.boxes, willSelect)
       );
     });
