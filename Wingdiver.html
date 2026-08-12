@@ -2,28 +2,66 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Wingdiver - EDF 4.1</title>
-<link rel="stylesheet" href="edf.css?v=23">
+  <link rel="stylesheet" href="edf-hud.css?v=25">
+  <link rel="manifest" href="./manifest.webmanifest"/>
+  <meta name="theme-color" content="#0a0d0a"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+  <link rel="apple-touch-icon" href="./icon-180.png"/>
 </head>
-<body>
-  <div class="top-bar">
-    <a class="back-button" href="index.html">&#8592;</a>
-    <div class="save-button">SAVE CHANGES</div>
+<body class="checklist-page">
+
+  <div class="topbar">
+    <a class="back-btn" href="index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Back
+    </a>
+    <div class="autosave-pill"><span class="dot"></span>Auto-Save On</div>
   </div>
 
-  <div class="title-counter">WINGDIVER <span id="global-count"></span></div>
-  <div id="categories-container"></div>
-  <div id="toast">Saved!</div>
+  <div class="classheader">
+    <div class="classname">Wing Diver</div>
+    <div class="progressbadge" id="global-count">000/0</div>
+    <label class="selectall">
+      <input id="select-all-toggle" class="toggle-input" type="checkbox">
+      <span class="toggle" aria-hidden="true"><span class="knob"></span></span>
+      Select All
+    </label>
+  </div>
 
-  <script src="edf-page.js?v=23"></script>
+  <div class="searchwrap">
+    <input type="search" id="search-input" placeholder="Search weapons&hellip;" autocomplete="off" aria-label="Search Wing Diver weapons">
+  </div>
+
+  <div class="categorylist" id="categories-container"></div>
+  <div class="no-results" id="no-results" hidden>No weapons match your search</div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" aria-hidden="true"><path d="M4 12.5l5.5 5.5L20 7"/></svg>
+    <span id="toast-text">Progress saved</span>
+  </div>
+
+  <div class="modal-backdrop" id="modal-backdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h2 id="modal-title">Confirm Bulk Change</h2>
+      <p id="modal-msg"></p>
+      <div class="modal-actions">
+        <button type="button" class="cancel" id="modal-cancel">Cancel</button>
+        <button type="button" class="confirm" id="modal-confirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="edf-page.js?v=24"></script>
   <script src="Wingdiver.js"></script>
   <script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js', { scope: './' });
-  });
-}
-</script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js', { scope: './' });
+      });
+    }
+  </script>
 </body>
 </html>

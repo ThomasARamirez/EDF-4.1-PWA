@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>EDF 4.1</title>
 
   <!-- Styles -->
-  <link rel="stylesheet" href="edf.css?v=23">
+  <link rel="stylesheet" href="edf-hud.css?v=25">
 
   <!-- PWA -->
   <link rel="manifest" href="./manifest.webmanifest"/>
-  <meta name="theme-color" content="#122"/>
+  <meta name="theme-color" content="#0a0d0a"/>
 
   <!-- iOS PWA -->
   <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -18,26 +18,42 @@
   <meta name="apple-mobile-web-app-title" content="EDF 4.1"/>
   <link rel="apple-touch-icon" href="./icon-180.png"/>
 </head>
-<body>
-  <div class="gif-container">
-    <img src="EDF_Logo.gif" alt="EDF 4.1 The Shadow of New Despair"/>
+<body class="menu-page">
+
+  <div class="fx-backdrop" aria-hidden="true">
+    <div class="stars"></div>
+    <div class="stars2"></div>
+    <div class="radar" id="radar"><div class="sweep"></div></div>
+    <div class="alertwash"></div>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
   </div>
 
-  <div class="button-list font-mainbtn-titling">
-    <a href="Ranger.html">Ranger</a>
-    <a href="Wingdiver.html">Wingdiver</a>
-    <a href="AirRaider.html">Air Raider</a>
-    <a href="Fencer.html">Fencer</a>
+  <div class="hud-controls">
+    <button id="fx-toggle" class="ctrl-btn" type="button" aria-pressed="true" title="Background effects">FX</button>
+    <button id="snd-toggle" class="ctrl-btn" type="button" aria-pressed="true" title="Interface sound">SND</button>
   </div>
 
-  <div class="backup-tools">
-    <button id="export-btn" type="button">Export Progress</button>
-    <button id="import-btn" type="button">Import Progress</button>
-    <input id="import-file" type="file" accept="application/json" hidden>
-  </div>
+  <main class="menu">
+    <div class="titleblock">
+      <h1>EDF 4.1</h1>
+      <div class="subtitle">The Shadow of New Despair</div>
+    </div>
+
+    <a class="btn" href="Ranger.html">Ranger <span class="tag" data-progress></span></a>
+    <a class="btn" href="Wingdiver.html">Wing Diver <span class="tag" data-progress></span></a>
+    <a class="btn" href="AirRaider.html">Air Raider <span class="tag" data-progress></span></a>
+    <a class="btn" href="Fencer.html">Fencer <span class="tag" data-progress></span></a>
+
+    <div class="utilrow">
+      <button class="btn util" id="export-btn" type="button">Export Progress</button>
+      <button class="btn util" id="import-btn" type="button">Import Progress</button>
+      <input id="import-file" type="file" accept="application/json" hidden>
+    </div>
+  </main>
 
   <!-- Scripts -->
-  <script src="Main.js?v=23" defer></script>
+  <script src="Main.js?v=25" defer></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

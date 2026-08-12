@@ -327,4 +327,4 @@ const categories = [
   { id:'power-suits',     title:'Power Suits',          names: powerSuits }
 ].map(c=>({...c,total:c.names.length}));
 
-createEDFPage({title:'AIR RAIDER', categories, storageKey:'airraiderSave'});
+createEDFPage({title:'Air Raider', categories, storageKey:'airraiderSave'});

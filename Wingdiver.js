@@ -212,4 +212,4 @@ const categories = [
   { id:'special-weapons',    title:'Special Weapons',       names: specialWeapons }
 ].map(c=>({...c,total:c.names.length}));
 
-createEDFPage({title:'WINGDIVER', categories, storageKey:'wingdiverSave'});
+createEDFPage({title:'Wing Diver', categories, storageKey:'wingdiverSave'});
