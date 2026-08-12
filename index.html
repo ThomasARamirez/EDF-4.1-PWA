@@ -54,12 +54,6 @@
 
   <!-- Scripts -->
   <script src="Main.js?v=25" defer></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./service-worker.js', { scope: './' });
-      });
-    }
-  </script>
+  <script src="sw-register.js?v=26" defer></script>
 </body>
 </html>
