@@ -4,308 +4,389 @@
  * Shared page builder for each EDF class page (Ranger / Wingdiver / AirRaider / Fencer).
  *
  * Responsibilities:
- *  - Build the category UI (collapsible lists with counts)
- *  - Smooth-scroll when opening/closing lists
- *  - Track dirty state and enable/disable the Save button
+ *  - Build the category UI (accordion lists with counts)
+ *  - Live search across weapon names
+ *  - Debounced autosave with a non-blocking toast
+ *  - Confirmation modal for bulk (multi-item) changes
  *  - Persist progress to localStorage (including totals for Main/index)
- *  - Provide "Select all" bulk toggle next to the global counter
  *  - Keep Main/index buttons in sync via _total and _count keys
+ *
+ * Save format is unchanged from the pre-redesign app and must stay that way so
+ * existing users' progress survives: localStorage[storageKey] is a JSON object
+ * of { categoryId: [checkedIndex, ...] }, alongside storageKey + '_total' and
+ * storageKey + '_count'. Indices are positions within a category's names array.
  * -----------------------------------------------------------------------------
  */
 
 function createEDFPage({ title, categories, storageKey }) {
   /* =========================================
    *  Initialization & DOM wiring
-   *  - compute totals, cache main DOM nodes
    * ========================================= */
   const TOTAL_ALL = categories.reduce((sum, c) => sum + c.names.length, 0);
   localStorage.setItem(storageKey + '_total', String(TOTAL_ALL));
 
-  const container = document.getElementById('categories-container');
-  const saveBtn   = document.querySelector('.save-button');
+  const container   = document.getElementById('categories-container');
+  const classNameEl = document.querySelector('.classname');
+  const badgeEl     = document.getElementById('global-count');
+  const searchEl    = document.getElementById('search-input');
+  const noResultsEl = document.getElementById('no-results');
+  const topbarEl    = document.querySelector('.topbar');
 
-  const CHECKED_SELECTOR = '#categories-container input[type="checkbox"]:checked';
-  const prefersNoMotion  = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  if (classNameEl && title) classNameEl.textContent = title;
 
-  /* =========================================
-   *  Smooth scrolling helpers
-   *  - bring header to top on open
-   *  - scroll to top before closing to avoid jump
-   * ========================================= */
-  function scrollHeaderIntoView(headerEl, offset = 8) {
-    if (!headerEl) return;
-    const rect    = headerEl.getBoundingClientRect();
-    const targetY = window.pageYOffset + rect.top - offset;
-    if (prefersNoMotion) {
-      window.scrollTo(0, targetY);
-    } else {
-      window.scrollTo({ top: targetY, behavior: 'smooth' });
-    }
-  }
+  const SAVE_DEBOUNCE_MS = 600;
 
-  function smoothScrollTo(topTarget) {
-    if (prefersNoMotion) {
-      window.scrollTo(0, topTarget);
-      return Promise.resolve();
-    }
-    return new Promise((resolve) => {
-      const tolerance = 2;
-      window.scrollTo({ top: topTarget, behavior: 'smooth' });
-      const tick = () => {
-        if (Math.abs(window.scrollY - topTarget) <= tolerance) resolve();
-        else requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    });
-  }
+  // Per-category runtime state. Element references are held directly rather than
+  // re-queried via .category:nth-child(n) — that selector only worked while the
+  // container's children were exclusively .category divs, which the search
+  // empty-state and any future sibling would quietly break.
+  const state = categories.map(cat => ({
+    id: cat.id,
+    title: cat.title,
+    names: cat.names,
+    boxes: [],      // the real <input type="checkbox"> per weapon
+    rowEls: [],     // the <li> per weapon, for search filtering
+    wrapEl: null,
+    headerEl: null,
+    bodyEl: null,
+    countEl: null,
+  }));
+
+  const checkedCountFor = (cat) => cat.boxes.reduce((n, cb) => n + (cb.checked ? 1 : 0), 0);
+  const totalChecked    = () => state.reduce((n, cat) => n + checkedCountFor(cat), 0);
 
   /* =========================================
-   *  Save button state
-   *  - enable only when there are unsaved changes
+   *  Sticky offset
+   *  - category headers stick directly beneath the top bar, whose height varies
+   *    with the iOS safe-area inset, so measure it instead of hard-coding.
    * ========================================= */
-  function setSaveDisabled(disabled) {
-    if (!saveBtn) return;
-    saveBtn.classList.toggle('is-disabled', disabled);
-    saveBtn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  function syncTopbarHeight() {
+    if (!topbarEl) return;
+    document.documentElement.style.setProperty('--topbar-h', topbarEl.offsetHeight + 'px');
   }
-  function isSaveDisabled() {
-    return !!saveBtn && saveBtn.classList.contains('is-disabled');
-  }
-
-  // Signature of current checkbox state (across all categories)
-  let lastSavedSig = '';
-  function computeSignature() {
-    const parts = [];
-    categories.forEach((cat, ci) => {
-      const boxes = document.querySelectorAll(
-        `.category:nth-child(${ci + 1}) input[type="checkbox"]`
-      );
-      let s = '';
-      boxes.forEach(cb => { s += cb.checked ? '1' : '0'; });
-      parts.push(s);
-    });
-    return parts.join('|');
-  }
-  function refreshDirty() {
-    setSaveDisabled(computeSignature() === lastSavedSig);
-  }
+  syncTopbarHeight();
+  window.addEventListener('resize', syncTopbarHeight);
+  if (window.ResizeObserver && topbarEl) new ResizeObserver(syncTopbarHeight).observe(topbarEl);
 
   /* =========================================
-   *  Save (manual)
-   *  - writes per-category selections
-   *  - updates saved count for Main/index
-   *  - shows toast and resets dirty state
+   *  Persistence
+   *  - autosave is debounced; a flush on pagehide/hide keeps the last change
+   *    from being lost if the app is closed inside the debounce window.
    * ========================================= */
-  function saveList(showToast = true) {
-    if (isSaveDisabled()) return;
+  let saveTimer = null;
 
+  function saveNow(showToastOnSave = true) {
     const data = {};
-    categories.forEach((cat, ci) => {
-      data[cat.id] = [];
-      const boxes = document.querySelectorAll(
-        `.category:nth-child(${ci + 1}) input[type="checkbox"]`
-      );
-      boxes.forEach((cb, i) => { if (cb.checked) data[cat.id].push(i); });
+    state.forEach(cat => {
+      const picked = [];
+      cat.boxes.forEach((cb, i) => { if (cb.checked) picked.push(i); });
+      data[cat.id] = picked;
     });
     localStorage.setItem(storageKey, JSON.stringify(data));
-
-    const savedChecked = document.querySelectorAll(CHECKED_SELECTOR).length;
-    localStorage.setItem(storageKey + '_count', String(savedChecked));
-
-    if (showToast) showSaveToast();
-
-    lastSavedSig = computeSignature();
-    setSaveDisabled(true);
-  }
-  window.saveList = saveList;
-
-  if (saveBtn) {
-    saveBtn.addEventListener('click', (e) => {
-      if (isSaveDisabled()) { e.preventDefault(); e.stopPropagation(); return; }
-      saveList();
-    });
+    localStorage.setItem(storageKey + '_count', String(totalChecked()));
+    localStorage.setItem(storageKey + '_total', String(TOTAL_ALL));
+    if (showToastOnSave) showToast('Progress saved');
   }
 
-  /* =========================================
-   *  UI Builder
-   *  - build each category card, header, list
-   *  - wire open/close with smooth scroll
-   *  - wire checkbox change handlers
-   * ========================================= */
-  categories.forEach(cat => {
-    // wrapper
-    const wrap = document.createElement('div');
-    wrap.className = 'category';
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { saveTimer = null; saveNow(); }, SAVE_DEBOUNCE_MS);
+  }
 
-    // header (title + per-category count)
-    const header = document.createElement('div');
-    header.className = 'category-header';
+  function flushSave() {
+    if (saveTimer === null) return;
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    saveNow(false); // no toast — the page is going away
+  }
 
-    const titleEl = document.createElement('span');
-    titleEl.className = 'header-title';
-    titleEl.textContent = cat.title;
-
-    const countEl = document.createElement('span');
-    countEl.className = 'header-count';
-    countEl.textContent = `0/${cat.names.length}`;
-
-    header.replaceChildren(titleEl, countEl);
-
-    // open/close with smooth scrolling behavior
-    header.addEventListener('click', async () => {
-      const body     = wrap.querySelector('.category-items');
-      const willOpen = body.style.display !== 'block';
-
-      if (willOpen) {
-        body.style.display = 'block';
-        scrollHeaderIntoView(header);
-      } else {
-        await smoothScrollTo(0);       // avoid jump
-        body.style.display = 'none';
-      }
-    });
-
-    // list body
-    const body = document.createElement('div');
-    body.className = 'category-items';
-
-    cat.names.forEach(name => {
-      const label = document.createElement('label');
-      const cb    = document.createElement('input');
-      cb.type     = 'checkbox';
-
-      cb.addEventListener('change', () => {
-        updateCount(cat.id, cat.names.length);
-        updateGlobalCount();
-        refreshSelectAllToggle();
-        refreshDirty();
-      });
-
-      label.appendChild(cb);
-      label.append(` ${name}`);
-      body.appendChild(label);
-    });
-
-    wrap.appendChild(header);
-    wrap.appendChild(body);
-    container.appendChild(wrap);
+  window.addEventListener('pagehide', flushSave);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushSave();
   });
 
   /* =========================================
    *  Counters
-   *  - per-category count
-   *  - global count (updates color state)
    * ========================================= */
-  function updateCount(id, total) {
-    const idx    = categories.findIndex(c => c.id === id);
-    const catDiv = container.querySelector(`.category:nth-child(${idx + 1})`);
-    const checked = catDiv.querySelectorAll('input[type="checkbox"]:checked').length;
-    catDiv.querySelector('.header-count').textContent = `${checked}/${total}`;
+  function updateCategoryCount(cat) {
+    if (cat.countEl) cat.countEl.textContent = `${checkedCountFor(cat)}/${cat.names.length}`;
   }
-  window.updateCount = updateCount;
 
   function updateGlobalCount() {
-    const el = document.getElementById('global-count');
-    if (!el) return;
-    const checked = document.querySelectorAll(CHECKED_SELECTOR).length;
-    el.textContent = `${checked}/${TOTAL_ALL}`;
-    el.classList.remove('low', 'medium', 'complete');
-    if (checked >= TOTAL_ALL) el.classList.add('complete');
-    else if (checked >= TOTAL_ALL / 2) el.classList.add('medium');
-    else el.classList.add('low');
+    const checked = totalChecked();
+    if (badgeEl) badgeEl.textContent = String(checked).padStart(3, '0') + '/' + TOTAL_ALL;
+    refreshSelectAllToggle(checked);
   }
-  window.updateGlobalCount = updateGlobalCount;
+
+  function updateAllCounts() {
+    state.forEach(updateCategoryCount);
+    updateGlobalCount();
+  }
 
   /* =========================================
    *  Toast
-   *  - center overlay that auto-hides
    * ========================================= */
-  function showSaveToast() {
-    const t = document.getElementById('toast');
-    if (!t) return;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 1500);
+  let toastTimer = null;
+  function showToast(msg) {
+    const toastEl = document.getElementById('toast');
+    const textEl  = document.getElementById('toast-text');
+    if (!toastEl) return;
+    if (textEl) textEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2200);
   }
-  window.showSaveToast = showSaveToast;
 
   /* =========================================
-   *  Bulk select toggle
-   *  - injects a "Select all" checkbox next to the counter
-   *  - syncs indeterminate/checked state as you click
+   *  Confirmation modal (bulk changes only)
+   *  - traps Tab inside the dialog and restores focus to the invoking control
    * ========================================= */
-  injectSelectAllToggle();
+  const modalBackdrop = document.getElementById('modal-backdrop');
+  const modalMsg      = document.getElementById('modal-msg');
+  const modalCancel   = document.getElementById('modal-cancel');
+  const modalConfirm  = document.getElementById('modal-confirm');
+  let pendingConfirm  = null;
+  let lastFocused     = null;
 
-  function injectSelectAllToggle() {
-    const bar = document.querySelector('.title-counter');
-    if (!bar) return;
+  function confirmBulk(message, onConfirm) {
+    if (!modalBackdrop) { onConfirm(); return; } // fail open rather than trap the action
+    lastFocused = document.activeElement;
+    modalMsg.textContent = message;
+    pendingConfirm = onConfirm;
+    modalBackdrop.classList.add('open');
+    modalConfirm.focus();
+  }
 
-    let tools = bar.querySelector('.bulk-tools');
-    if (!tools) {
-      tools = document.createElement('span');
-      tools.className = 'bulk-tools';
-      tools.innerHTML = `
-        <label class="bulk-toggle">
-          <input id="select-all-toggle" type="checkbox" />
-          <span>Select all</span>
-        </label>
-      `;
-      bar.appendChild(tools);
-    }
+  function closeModal() {
+    if (!modalBackdrop) return;
+    modalBackdrop.classList.remove('open');
+    pendingConfirm = null;
+    if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
+    lastFocused = null;
+  }
 
-    const toggle = tools.querySelector('#select-all-toggle');
-    toggle.addEventListener('change', (e) => {
-      setAllCheckboxes(e.target.checked);
-      updateGlobalCount();
-      categories.forEach(c => updateCount(c.id, c.names.length));
-      refreshSelectAllToggle();
-      refreshDirty();
+  if (modalBackdrop) {
+    modalCancel.addEventListener('click', closeModal);
+    modalConfirm.addEventListener('click', () => {
+      const fn = pendingConfirm;
+      closeModal();
+      if (fn) fn();
+    });
+    modalBackdrop.addEventListener('click', (e) => {
+      if (e.target === modalBackdrop) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (!modalBackdrop.classList.contains('open')) return;
+      if (e.key === 'Escape') { closeModal(); return; }
+      if (e.key !== 'Tab') return;
+      const focusables = [modalCancel, modalConfirm];
+      const first = focusables[0], last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     });
   }
 
-  function setAllCheckboxes(state) {
-    const boxes = document.querySelectorAll('#categories-container input[type="checkbox"]');
-    boxes.forEach(cb => { cb.checked = state; });
-  }
-
-  function refreshSelectAllToggle() {
-    const toggle = document.getElementById('select-all-toggle');
-    if (!toggle) return;
-    const boxes   = document.querySelectorAll('#categories-container input[type="checkbox"]');
-    const checked = document.querySelectorAll(CHECKED_SELECTOR);
-    toggle.checked = (boxes.length > 0 && checked.length === boxes.length);
-    toggle.indeterminate = (checked.length > 0 && checked.length < boxes.length);
+  /* =========================================
+   *  Bulk helpers
+   * ========================================= */
+  function setBoxes(boxes, checked) {
+    boxes.forEach(cb => { cb.checked = checked; });
+    updateAllCounts();
+    scheduleSave();
   }
 
   /* =========================================
-   *  Load (establish saved baseline)
-   *  - restore saved selections
-   *  - compute counts & sync Main/index totals
-   *  - mark page as clean (save disabled)
+   *  UI Builder
+   * ========================================= */
+  state.forEach(cat => {
+    const wrap = document.createElement('div');
+    wrap.className = 'category';
+
+    const header = document.createElement('button');
+    header.type = 'button';
+    header.className = 'cat-header';
+    header.setAttribute('aria-expanded', 'false');
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'cat-name';
+    nameEl.textContent = cat.title;
+
+    const countEl = document.createElement('span');
+    countEl.className = 'cat-count';
+    countEl.textContent = `0/${cat.names.length}`;
+
+    const chevron = document.createElement('span');
+    chevron.className = 'chevron';
+    chevron.textContent = '›'; // ›
+    chevron.setAttribute('aria-hidden', 'true');
+
+    header.append(nameEl, countEl, chevron);
+
+    const body = document.createElement('div');
+    body.className = 'cat-body';
+    body.hidden = true;
+
+    const bulkBtn = document.createElement('button');
+    bulkBtn.type = 'button';
+    bulkBtn.className = 'cat-bulk-btn';
+    bulkBtn.textContent = 'Toggle All In This Category';
+    body.appendChild(bulkBtn);
+
+    const list = document.createElement('ul');
+    list.className = 'weapon-list';
+
+    cat.names.forEach(name => {
+      const li = document.createElement('li');
+      li.className = 'weapon-row';
+
+      // The <label> wraps the input, so a tap anywhere in the row toggles the
+      // checkbox exactly once through native label behaviour. Adding a JS click
+      // handler here as well would double-fire whenever the tap landed on the
+      // input itself, cancelling the change out.
+      const label = document.createElement('label');
+      label.className = 'weapon-label';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'toggle-input';
+
+      const toggle = document.createElement('span');
+      toggle.className = 'toggle';
+      toggle.setAttribute('aria-hidden', 'true');
+      toggle.appendChild(Object.assign(document.createElement('span'), { className: 'knob' }));
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'weapon-name';
+      nameSpan.textContent = name;
+
+      cb.addEventListener('change', () => {
+        updateAllCounts();
+        scheduleSave();
+      });
+
+      label.append(cb, toggle, nameSpan);
+      li.appendChild(label);
+      list.appendChild(li);
+
+      cat.boxes.push(cb);
+      cat.rowEls.push(li);
+    });
+
+    body.appendChild(list);
+    wrap.append(header, body);
+    container.appendChild(wrap);
+
+    cat.wrapEl = wrap;
+    cat.headerEl = header;
+    cat.bodyEl = body;
+    cat.countEl = countEl;
+
+    // Accordion: opening one category closes any other that is open.
+    header.addEventListener('click', () => {
+      const isOpen = header.getAttribute('aria-expanded') === 'true';
+      if (!isOpen) state.forEach(other => { if (other !== cat) setCategoryOpen(other, false); });
+      setCategoryOpen(cat, !isOpen);
+    });
+
+    bulkBtn.addEventListener('click', () => {
+      const willSelect = checkedCountFor(cat) < cat.boxes.length;
+      const verb = willSelect ? 'collected' : 'not collected';
+      confirmBulk(
+        `Mark all ${cat.boxes.length} ${cat.title} weapons as ${verb}?`,
+        () => setBoxes(cat.boxes, willSelect)
+      );
+    });
+  });
+
+  function setCategoryOpen(cat, open) {
+    cat.headerEl.setAttribute('aria-expanded', String(open));
+    cat.bodyEl.hidden = !open;
+    cat.wrapEl.classList.toggle('open', open);
+  }
+
+  /* =========================================
+   *  Select all (global)
+   * ========================================= */
+  const selectAllBox = document.getElementById('select-all-toggle');
+
+  function refreshSelectAllToggle(checked = totalChecked()) {
+    if (!selectAllBox) return;
+    selectAllBox.checked = (TOTAL_ALL > 0 && checked === TOTAL_ALL);
+    selectAllBox.indeterminate = (checked > 0 && checked < TOTAL_ALL);
+  }
+
+  if (selectAllBox) {
+    selectAllBox.addEventListener('click', (e) => {
+      // Drive this through the modal instead of letting the checkbox flip
+      // straight away — the change only lands once the user confirms.
+      e.preventDefault();
+      const willSelect = totalChecked() < TOTAL_ALL;
+      const verb = willSelect ? 'collected' : 'not collected';
+      confirmBulk(
+        `Mark all ${TOTAL_ALL} ${title} weapons as ${verb}?`,
+        () => setBoxes(state.flatMap(c => c.boxes), willSelect)
+      );
+    });
+  }
+
+  /* =========================================
+   *  Search
+   *  - filters rows in place; matching categories auto-expand while a query is
+   *    active, and everything collapses again once it is cleared.
+   *  - hidden rows stay in the DOM, so saved indices remain correct throughout.
+   * ========================================= */
+  if (searchEl) {
+    searchEl.addEventListener('input', () => {
+      const q = searchEl.value.trim().toLowerCase();
+
+      if (!q) {
+        state.forEach(cat => {
+          cat.rowEls.forEach(li => { li.hidden = false; });
+          cat.wrapEl.hidden = false;
+          setCategoryOpen(cat, false);
+        });
+        if (noResultsEl) noResultsEl.hidden = true;
+        return;
+      }
+
+      let anyMatchAtAll = false;
+      state.forEach(cat => {
+        let anyMatch = false;
+        cat.names.forEach((name, i) => {
+          const match = name.toLowerCase().includes(q);
+          cat.rowEls[i].hidden = !match;
+          if (match) anyMatch = true;
+        });
+        cat.wrapEl.hidden = !anyMatch;
+        setCategoryOpen(cat, anyMatch);
+        if (anyMatch) anyMatchAtAll = true;
+      });
+      if (noResultsEl) noResultsEl.hidden = anyMatchAtAll;
+    });
+  }
+
+  /* =========================================
+   *  Load saved progress
    * ========================================= */
   function loadList() {
     let data = {};
-    try { data = JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch {}
+    try { data = JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch { data = {}; }
 
-    categories.forEach((cat, ci) => {
-      const saved = data[cat.id] || [];
-      const boxes = document.querySelectorAll(
-        `.category:nth-child(${ci + 1}) input[type="checkbox"]`
-      );
-      saved.forEach(i => { if (boxes[i]) boxes[i].checked = true; });
-      updateCount(cat.id, cat.names.length);
+    state.forEach(cat => {
+      const saved = Array.isArray(data[cat.id]) ? data[cat.id] : [];
+      saved.forEach(i => { if (cat.boxes[i]) cat.boxes[i].checked = true; });
     });
 
-    updateGlobalCount();
-    refreshSelectAllToggle();
+    updateAllCounts();
 
-    // Keep Main/index in sync with authoritative totals & saved counts
+    // Keep Main/index in sync with authoritative totals & counts on every visit.
     localStorage.setItem(storageKey + '_total', String(TOTAL_ALL));
-    const savedChecked = document.querySelectorAll(CHECKED_SELECTOR).length;
-    localStorage.setItem(storageKey + '_count', String(savedChecked));
-
-    lastSavedSig = computeSignature();
-    setSaveDisabled(true);
+    localStorage.setItem(storageKey + '_count', String(totalChecked()));
   }
 
-  document.addEventListener('DOMContentLoaded', loadList);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadList);
+  } else {
+    loadList();
+  }
 }

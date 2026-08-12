@@ -2,7 +2,7 @@
 // ----------------------------------------------------
 // Full pre-cache of app shell + cache-first runtime
 // ----------------------------------------------------
-const CACHE_VERSION = 'edf-precache-v24'; // bump when files change
+const CACHE_VERSION = 'edf-precache-v25'; // bump when files change
 
 const PRECACHE_URLS = [
   './',
@@ -11,11 +11,28 @@ const PRECACHE_URLS = [
   './Wingdiver.html',
   './AirRaider.html',
   './Fencer.html',
+
+  // index.html (still on the original theme) — left at v=23 to match what it requests
   './edf.css?v=23',
   './Main.js?v=23',
-  './edf-page.js?v=23',
+
+  // class checklist pages (HUD theme)
+  './edf-hud.css?v=24',
+  './edf-page.js?v=24',
+  './Ranger.js',
+  './Wingdiver.js',
+  './AirRaider.js',
+  './Fencer.js',
+
   './manifest.webmanifest',
+
+  // fonts: perfect-future is index.html's; the rest back the HUD theme
   './perfect-future.ttf',
+  './orbitron.ttf',
+  './rajdhani-medium.ttf',
+  './rajdhani-semibold.ttf',
+  './rajdhani-bold.ttf',
+
   './EDF_Logo.gif',
   './icon-192.png',
   './icon-512.png',
