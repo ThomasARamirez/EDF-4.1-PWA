@@ -2,8 +2,11 @@
 // ----------------------------------------------------
 // Full pre-cache of app shell + cache-first runtime
 // ----------------------------------------------------
-const CACHE_VERSION = 'edf-precache-v25'; // bump when files change
+const CACHE_VERSION = 'edf-precache-v26'; // bump when files change
 
+// Every entry must match the URL the HTML actually requests, query string
+// included — cacheFirstExact() does an exact match, and any 404 here rejects
+// cache.addAll() and aborts the whole install.
 const PRECACHE_URLS = [
   './',
   './index.html',
@@ -12,12 +15,8 @@ const PRECACHE_URLS = [
   './AirRaider.html',
   './Fencer.html',
 
-  // index.html (still on the original theme) — left at v=23 to match what it requests
-  './edf.css?v=23',
-  './Main.js?v=23',
-
-  // class checklist pages (HUD theme)
-  './edf-hud.css?v=24',
+  './edf-hud.css?v=25',
+  './Main.js?v=25',
   './edf-page.js?v=24',
   './Ranger.js',
   './Wingdiver.js',
@@ -26,18 +25,19 @@ const PRECACHE_URLS = [
 
   './manifest.webmanifest',
 
-  // fonts: perfect-future is index.html's; the rest back the HUD theme
-  './perfect-future.ttf',
   './orbitron.ttf',
   './rajdhani-medium.ttf',
   './rajdhani-semibold.ttf',
   './rajdhani-bold.ttf',
 
-  './EDF_Logo.gif',
   './icon-192.png',
   './icon-512.png',
   './icon-180.png',
 ];
+
+// Deliberately not precached: EDF_Logo.gif (1.4MB) and perfect-future.ttf are
+// unreferenced now that the menu uses the gradient wordmark and the HUD fonts.
+// The files are kept in the repo so the logo is easy to reinstate.
 
 const isSameOrigin = (url) => (new URL(url, self.location.href)).origin === self.location.origin;
 
