@@ -395,6 +395,28 @@ body.bg-paused .sweep, body.bg-paused .alertwash{ animation-play-state:paused; }
   background:linear-gradient(180deg, rgba(14,20,32,.75), rgba(8,12,20,.75));
 }
 
+/* =============================================================================
+   PAGE TRANSITIONS
+   Cross-document view transitions: a quick bloom-and-settle between pages,
+   rather than the hard cut a normal navigation gives.
+
+   Deliberately CSS-only. Browsers without support simply navigate as before —
+   there is no half-applied state to get stuck in, which a JS fade-out would
+   risk every time a navigation stalled or was cancelled.
+   ============================================================================= */
+@view-transition{ navigation:auto; }
+
+@keyframes edf-nav-out{
+  to{ opacity:0; transform:scale(.985); filter:brightness(1.8) saturate(1.3); }
+}
+@keyframes edf-nav-in{
+  from{ opacity:0; transform:scale(1.012); filter:brightness(1.8) saturate(1.3); }
+}
+::view-transition-old(root){ animation:edf-nav-out .2s ease-in both; }
+::view-transition-new(root){ animation:edf-nav-in .26s ease-out both; }
+
 @media (prefers-reduced-motion: reduce){
   *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
+  /* The * rule above cannot reach these — pseudo-elements need naming. */
+  ::view-transition-old(root), ::view-transition-new(root){ animation:none; }
 }

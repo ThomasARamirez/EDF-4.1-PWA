@@ -6,7 +6,7 @@
   <title>EDF 4.1</title>
 
   <!-- Styles -->
-  <link rel="stylesheet" href="edf-hud.css?v=25">
+  <link rel="stylesheet" href="edf-hud.css?v=27">
 
   <!-- PWA -->
   <link rel="manifest" href="./manifest.webmanifest"/>
@@ -53,7 +53,17 @@
   </main>
 
   <!-- Scripts -->
-  <script src="Main.js?v=25" defer></script>
+  <script src="Main.js?v=27" defer></script>
+
+  <!-- Weapon data, loaded only for its category totals so the menu can show a
+       class's progress before that class has ever been opened. Main.js is
+       deferred too and comes first, so its createEDFPage() stand-in is defined
+       by the time these run. Modules, so their top-level consts don't collide. -->
+  <script type="module" src="Ranger.js"></script>
+  <script type="module" src="Wingdiver.js"></script>
+  <script type="module" src="AirRaider.js"></script>
+  <script type="module" src="Fencer.js"></script>
+
   <script src="sw-register.js?v=26" defer></script>
 </body>
 </html>

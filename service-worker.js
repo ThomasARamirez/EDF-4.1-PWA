@@ -2,7 +2,7 @@
 // ----------------------------------------------------
 // Full pre-cache of app shell + cache-first runtime
 // ----------------------------------------------------
-const CACHE_VERSION = 'edf-precache-v27'; // bump when files change
+const CACHE_VERSION = 'edf-precache-v28'; // bump when files change
 
 // Every entry must match the URL the HTML actually requests, query string
 // included — cacheFirstExact() does an exact match, and any 404 here rejects
@@ -15,9 +15,9 @@ const PRECACHE_URLS = [
   './AirRaider.html',
   './Fencer.html',
 
-  './edf-hud.css?v=25',
-  './Main.js?v=25',
-  './edf-page.js?v=24',
+  './edf-hud.css?v=27',
+  './Main.js?v=27',
+  './edf-page.js?v=27',
   './sw-register.js?v=26',
   './Ranger.js',
   './Wingdiver.js',

@@ -16,6 +16,23 @@ const STORAGE_MAP = Object.freeze([
 const PREF_FX  = 'edfFxOn';
 const PREF_SND = 'edfSndOn';
 
+// ------- Class totals -------
+// A class's total was previously only known after visiting its page, since that
+// is what wrote <key>_total, so the menu had nothing to show for a class the
+// user had never opened. index.html now loads the four weapon data files
+// directly and this stands in for the real createEDFPage(), recording each
+// total instead of building a page. That keeps the data files as the single
+// source of truth — hardcoding the numbers here would silently drift the first
+// time a weapon list changed.
+//
+// The data files are loaded as modules on the menu so their top-level consts
+// stay scoped per file; several of them share names and would otherwise
+// collide.
+const EDF_TOTALS = Object.create(null);
+function createEDFPage({ categories, storageKey }) {
+  EDF_TOTALS[storageKey] = categories.reduce((sum, c) => sum + c.names.length, 0);
+}
+
 // ------- Helpers -------
 const $ = (sel, root = document) => root.querySelector(sel);
 const getInt = (k, d = 0) => parseInt(localStorage.getItem(k) ?? String(d), 10);
@@ -36,14 +53,20 @@ const writePref = (key, on) => localStorage.setItem(key, on ? '1' : '0');
 // ------- Progress UI (tags + complete state) -------
 function refreshProgress() {
   STORAGE_MAP.forEach(({ key, href }) => {
-    const total = getInt(`${key}_total`, 0);
+    // Prefer the total computed from the weapon data over whatever a past visit
+    // stored, so a changed weapon list corrects itself here rather than waiting
+    // for the class page to be opened again.
+    const total = EDF_TOTALS[key] ?? getInt(`${key}_total`, 0);
     const count = getInt(`${key}_count`, 0);
     const link  = $(`.menu a[href="${href}"]`);
     if (!link) return;
 
+    if (total > 0 && getInt(`${key}_total`, 0) !== total) {
+      localStorage.setItem(`${key}_total`, String(total));
+    }
+
     const tag = $('[data-progress]', link);
-    // Totals are only known once a class page has been visited at least once,
-    // so fall back to a neutral tag rather than printing "000/0".
+    // The dash is now only reachable if the data files failed to load at all.
     if (tag) tag.textContent = total > 0 ? String(count).padStart(3, '0') + '/' + total : '—';
 
     link.classList.toggle('complete', total > 0 && count >= total);
