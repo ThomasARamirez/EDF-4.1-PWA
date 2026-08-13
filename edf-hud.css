@@ -383,6 +383,21 @@ body.bg-paused .sweep, body.bg-paused .alertwash{ animation-play-state:paused; }
 .btn.complete .tag{ opacity:1; color:var(--khaki); text-shadow:0 0 8px rgba(138,154,91,.7); }
 .btn.complete:hover{ border-color:var(--khaki); }
 
+.appfooter{
+  margin-top:20px; text-align:center;
+  font-size:11px; font-weight:600; letter-spacing:2px; text-transform:uppercase;
+  color:var(--ghost);
+}
+.appfooter .version{ font-variant-numeric:tabular-nums; }
+.appfooter .sep{ opacity:.5; margin:0 7px; }
+.appfooter a{
+  color:var(--khaki); text-decoration:none;
+  border-bottom:1px solid rgba(138,154,91,.35);
+  transition:color .2s ease, border-color .2s ease;
+}
+.appfooter a:hover{ color:var(--ink-bright); border-bottom-color:var(--ink-bright); }
+.appfooter a:focus-visible{ outline:2px solid var(--alert-bright); outline-offset:3px; }
+
 .utilrow{ display:flex; gap:10px; width:100%; margin-top:6px; }
 .btn.util{
   flex:1; padding:11px 12px; font-size:clamp(12px, 3.3vw, 15px); text-align:center;

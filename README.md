@@ -1,5 +1,7 @@
 # EDF-4.1-PWA
 
+**Version 2.0.0** · [Version history](#version-history)
+
 A weapon collection checklist for **Earth Defense Force 4.1: The Shadow of New Despair**.
 
 Tick off weapons as you pick them up and track how close each class is to 100%. It's an installable, offline-capable web app — no account, no server, nothing to sign up for.
@@ -93,9 +95,44 @@ The service worker precaches the whole app shell, and `cacheFirstExact()` matche
 
 Every entry must resolve — `cache.addAll()` rejects on a single 404 and the install silently fails, taking offline support with it.
 
+## Version history
+
+Versions are recorded in two places — the footer on the main menu (`index.html`) and the heading of this file. Bump both together. `CACHE_VERSION` in `service-worker.js` is a separate counter that changes on *any* asset edit, so it deliberately doesn't track this.
+
+### 2.0.0 — August 2026
+
+Full visual redesign and a reworked interaction model. Major, because how the app is used changed, not just how it looks.
+
+- New HUD theme across every page, replacing the original layout
+- **Autosave** replaces the manual Save button — changes persist on their own
+- Live weapon search
+- Accordion categories, one open at a time
+- Bulk select/deselect per category and per class, behind a confirmation
+- Real progress counts on the main menu, plus a highlight at 100%
+- FX / SND preference toggles, defaulting off under reduced-motion
+- The app now updates itself instead of sitting behind a stale cache
+- Self-hosted fonts, so nothing is fetched from a CDN at runtime
+
+Saves carry over from 1.x untouched — the storage format did not change.
+
+### 1.1.0 — August 2026
+
+Repository audit and fixes, no visible feature changes.
+
+- **Restored the missing PWA icons.** They were deleted on 2025-08-12 while `service-worker.js` still precached them. Because `cache.addAll()` rejects if any single URL 404s, this aborted the service worker install — so offline support had been silently broken for roughly a year.
+- Self-hosted the three fonts that were declared in CSS but absent from the repo
+- Removed duplicate and version-mismatched script loads on the class pages
+- Corrected precache URLs that never matched what the pages actually requested
+
+### 1.0.0 — August 2025
+
+Original release: four class checklists, manual save, export/import, installable offline PWA.
+
 ## Credits
 
 Weapon names and categories are from Earth Defense Force 4.1, © SANDLOT / D3 PUBLISHER. This is an unofficial fan-made checklist.
+
+Built with [Claude Code](https://claude.com/claude-code).
 
 Bundled fonts are used under the SIL Open Font License; see [`font-licenses/`](font-licenses/).
 
