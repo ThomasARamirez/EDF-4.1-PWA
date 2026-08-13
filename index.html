@@ -6,7 +6,7 @@
   <title>EDF 4.1</title>
 
   <!-- Styles -->
-  <link rel="stylesheet" href="edf-hud.css?v=27">
+  <link rel="stylesheet" href="edf-hud.css?v=28">
 
   <!-- PWA -->
   <link rel="manifest" href="./manifest.webmanifest"/>
@@ -50,6 +50,14 @@
       <button class="btn util" id="import-btn" type="button">Import Progress</button>
       <input id="import-file" type="file" accept="application/json" hidden>
     </div>
+
+    <!-- Version lives here as a literal rather than being injected by script, so
+         it still shows if Main.js fails. Bump it here and in README.md. -->
+    <footer class="appfooter">
+      <span class="version">v2.0.0</span>
+      <span class="sep" aria-hidden="true">·</span>
+      Built with <a href="https://claude.com/claude-code" target="_blank" rel="noopener noreferrer">Claude Code</a>
+    </footer>
   </main>
 
   <!-- Scripts -->
