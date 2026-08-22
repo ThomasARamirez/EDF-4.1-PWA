@@ -6,7 +6,7 @@ A weapon collection checklist for **Earth Defense Force 4.1: The Shadow of New D
 
 Tick off weapons as you pick them up and track how close each class is to 100%. It's an installable, offline-capable web app — no account, no server, nothing to sign up for.
 
-**Site: https://thomasaramirez.github.io/EDF-4.1-PWA**
+**Site: https://Gear2ndGandalf.github.io/EDF-4.1-PWA**
 
 ---
 
